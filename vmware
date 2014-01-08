@@ -1,0 +1,293 @@
+#!/bin/bash
+
+# Copyright 2012 Robert Auch
+# Licensed under GPLv3
+# v1.1 - added "gksu / sudo" autodetection for ease-of-use
+# v1.2 - added variable pathnames for easier support of non-Ubuntu
+# v1.3 - added fixing of links per LinuxReCon in communities.vmware.com/message/2159266#2159266 as fixlinks()
+
+ACADAPTER="/sys/bus/acpi/drivers/ac/ACPI0003\:00/power_supply/AC/online"
+BATTERY="/sys/bus/acpi/drivers/battery/PNP0C0A\:00/power_supply/BAT0"
+
+# The default 3D method - autodetection, forced off, or forced on:
+FORCE3D="a"  #a for auto, n for no (forced off), y for yes (forced on)
+
+#This is how we'll track what we decide to do. Default safe for power.
+#The script will change this value based on logic below. Change to "y" to default on for speed
+DO3D="n"
+
+echo $1 | egrep -q -w '(help|h|\?)'
+if [ $? -eq 0 ]; then
+    echo "Choose whether to run VMware Workstation via primusrun/optirun or not, based on laptop power state"
+    echo "  (plugged in or not)"
+    echo "Options are slim:"
+    echo ""
+    echo "    -?|-h|--help        -- this help text"
+    echo "    -f|-y|--yes|--force -- force using optirun/primusrun"
+    echo "    -n|--no             -- force NOT using optirun/primusrun"
+    echo "    -i|--install        -- install these scripts"
+    echo ""
+    echo "If no options are passed, auto-detection is used.  Autodetection simply attempts to figure out if"
+    echo "your AC adapter is plugged in or not."
+    echo ""
+    exit 1
+fi
+
+if [ -x `which gksudo` ]; then
+    SUDO="`which gksudo` -k"
+elif [ -x `which gksu` ]; then
+    SUDO="`which gksu` -S -k"
+elif [ -x `which kdesudo` ]; then
+    echo "WARNING: kdesudo doesn't support a '--preserve-environment' flag, please install gksu. Using 'sudo -E', which requires a working terminal."
+    SUDO="sudo -E"
+else
+    echo "WARNING: no graphical sudo found - using 'sudo -E', which requires a working terminal."
+    SUDO="sudo -E"
+fi
+
+determineos() {
+    # Set up some paths so this script runs properly on multiple distros eventually.
+    # Only tested on Ubuntu 12.10 as of 2013-04-15, but we should only need to add
+    # new paths for SuSE/RHEL/Fedora/Mint/Other.
+    #
+    # This function needs to be duplicated into the installvmx_script() function
+    # below, any time it's changed.  That's the only reason it exists as a function:
+    # to delineate what needs to be duplicated into the installvmx_script()
+    ARCH=`uname -p`
+    if [  `which dpkg` ]; then
+        OStype="deb"
+        if [ `grep -c -i "ubuntu" /etc/os-release` -gt 0 ]; then
+            DISTRO="ubuntu"
+            LIB32="/lib32"
+            ULIB32="/usr/lib32"
+            LIB64="/lib"
+            ULIB64="/usr/lib"
+        fi
+        #Fill in Debian/Mint info here
+    elif [ `which rpm` ]; then
+        OStype="rpm"
+        if [ -f /etc/redhat-release ]; then
+            DISTRO="rhel"
+            LIB32="/lib"
+            ULIB32="/usr/lib"
+            LIB64="/lib64"
+            ULIB64="/usr/lib64"
+        fi
+        # FIll in SUSE info here
+    fi
+    NVIDIA_DEST32="${ULIB32}/linux-gnu"
+    NVIDIA_DEST64="${ULIB64}/x86_64-linux-gnu"
+    # Set the default library path to be 64-bit for 64-bit hardware, 32-bit for 32-bit hardware.
+    # we'll assume they installed the right VMware workstation version for their OS.
+    if [ "${ARCH}" = "x86_64" -o "${ARCH}" = "amd64" ]; then
+        ULIB=${ULIB64}
+        LIB=${LIB64}
+        NVIDIA_DEST=${NVIDIA_DEST64}
+    else
+        ULIB=${ULIB32}
+        LIB=${LIB32}
+        NVIDIA_DEST=${NVIDIA_DEST32}
+    fi
+    if [ -z ${ULIB} ]; then
+        echo "ERROR: Couldn't determine paths properly!"
+        exit 2
+    elif [ -z ${LIB} ]; then
+        echo "ERROR: Couldn't determine paths properly!"
+        exit 2
+    elif [ -z ${DISTRO} ]; then
+        echo "ERROR: Couldn't determine paths properly!"
+        exit 2
+    elif [ -z ${NVIDIA_DEST} ]; then
+        echo "ERROR: Couldn't determine paths properly!"
+        exit 2
+    fi
+    export ARCH
+    export DISTRO
+    export OStype
+    export ULIB
+    export LIB
+    export NVIDIA_DEST
+}
+
+determineos
+
+installvmx_script() {
+    if [ -x ${ULIB}/vmware/bin/vmware-vmx ]; then
+        filetype=`file ${ULIB}/vmware/bin/vmware-vmx`
+        echo ${filetype} | grep -q "setuid ELF"
+        if [ $? -ne 0 ]; then
+            echo "ERROR: vmware-vmx is not an ELF binary!"
+            echo "${filetype}"
+            echo "ERROR: Refusing to continue!"
+            exit 16
+        fi
+    else
+        echo "ERROR: vmware-vmx is not executable!"
+        echo "Don't know how to continue!"
+        exit 16
+    fi
+
+    if [ -f ${ULIB}/vmware/bin/vmware-vmx.real ]; then
+        echo "WARNING: there's already a vmware-vmx.real"
+        echo "Moving it to /usr/lib/vmware/bin/vmware-vmx.$$"
+        if [ -f ${ULIB}/vmware/bin/vmware-vmx.real.$$ ]; then
+            echo "Or not!  ${ULIB}/vmware/bin/vmware-vmx.real.$$ already exists!"
+            echo "ERROR: can't continue! Please clean up your VMware install!"
+            exit 16
+        fi
+        mv ${ULIB}/vmware/bin/vmware-vmx.real ${ULIB}/vmware/bin/vmware-vmx.real.$$
+        if [ $? -ne 0 ]; then
+            echo "ERROR $? moving vmware-vmx.real."
+            echo "   Can't continue!"
+            exit 16
+        fi
+    fi
+    mv ${ULIB}/vmware/bin/vmware-vmx ${ULIB}/vmware/bin/vmware-vmx.real
+    if [ $? -ne 0 ]; then
+        echo "ERROR $? moving vmware-vmx to vmware-vmx.real!"
+        echo "     Can't continue!"
+        exit 16
+    fi
+    touch ${ULIB}/vmware/bin/vmware-vmx
+    cat > ${ULIB}/vmware/bin/vmware-vmx <<'EOF'
+#!/bin/bash
+DO3D="${DO3D}"
+if [ -z "${DO3D}" ]; then
+    ps -ef |egrep -q '[p]rimusrun.*vmware'
+    if [ $? -eq 0 ]; then
+        DO3D="y"
+    else
+        DO3D="n"
+    fi
+fi
+
+# Find primusrun or optirun, since this can work with both, eventually
+bbrun="/usr/bin/primusrun"
+PRELOAD="/usr/lib/x86_64-linux-gnu/primus/libGL.so.1"
+if [ ! -x ${bbrun} ]; then
+    bbrun="/usr/bin/optirun"
+    #PRELOAD="/usr/lib/x86_64-linux-gnu/optimus/libGL.so.1"
+    PRELOAD=""
+fi
+if [ ! -x ${bbrun} ]; then
+    echo "ERROR: Couldn't find Primus or Optimus!"
+    exit 4
+fi
+
+
+if [ "${DO3D}" = "y" ]; then
+    #export PRIMUS_libGLa='/usr/lib/nvidia-304/libGL.so.1'
+    #export LD_LIBRARY_PATH=/usr/lib/nvidia-304:/usr/lib32/nvidia-304:/usr/lib/nvidia-304/tls:/usr/lib32/nvidia/tls
+
+    LD_PRELOAD=${PRELOAD} exec ${bbrun} /usr/lib/vmware/bin/vmware-vmx.real "$@"
+else
+    /usr/lib/vmware/bin/vmware-vmx.real "$@"
+fi
+
+EOF
+    chmod u+s,a+x ${ULIB}/vmware/bin/vmware-vmx
+    exit 0
+}
+
+fixlinks() {
+    DEST=`ls ${NVIDIA_DEST}/*nvidia* 2>/dev/null`
+    if [ -z "${DEST}" ]; then
+        #No Nvidia links were found, so we'll create them.
+        echo "No Nvidia so links were found in ${NVIDIA_DEST}, so they must be created."
+        echo "You may be prompted for sudo credentials to do so now:"
+        for file in ${ULIB}/nvidia-304/libnvidia-glcore* ${ULIB}/nvidia-304/tls/libnvidia-tls.so*; do
+            echo "sudo ln -s $file ${NVIDIA_DEST}"
+            sudo ln -s $file ${NVIDIA_DEST}
+        done
+    fi
+}
+
+#figure out which options the user wants
+echo $1 | egrep -q -w '(yes|y|f|force)'
+if [ $? -eq 0 ]; then
+    echo "forcing 3d on"
+    FORCE3D="y"
+fi
+
+echo $1 | egrep -q -w '(n|no)'
+if [ $? -eq 0 ]; then
+    echo "Forcing 3D off"
+    FORCE3D="n"
+fi
+
+echo $1 | egrep -q -w '(i|install)'
+if [ $? -eq 0 ]; then
+    if [ "$USER" = "root" ]; then
+        installvmx_script
+        if [ $? -eq 0 ]; then
+            fixlinks
+            exit 0
+        else
+            echo "Some error happened in the installer!"
+            exit 1
+        fi
+    else
+        echo "ERROR: Have to be root to run the install!"
+        echo "       Please try again via $SUDO."
+        exit 2
+    fi
+fi
+
+fixlinks
+
+# Find primusrun or optirun, since this can work with both 
+bbrun="/usr/bin/primusrun"
+if [ ! -x ${bbrun} ]; then
+    bbrun="/usr/bin/optirun"
+fi
+if [ ! -x ${bbrun} ]; then
+    echo "ERROR: Couldn't find Primus or Optimus!"
+    exit 4
+fi
+
+
+if [ "${FORCE3D}" = "y" ]; then
+    #The user wants it forced on! Easy!
+    DO3D="y"
+elif [ "${FORCE3D}" = "n" ]; then
+    DO3D="n"
+else
+    #automatic!
+
+    # Now determine if we're on AC (mains) power or not
+    ACSTATE=`cat ${ACADAPTER}`
+    BATSTATE=`cat ${BATTERY}/status`
+    if [ -f ${BATTERY} ]; then
+        BATPRESENT=`cat ${BATTERY}/present`
+    else
+        BATSTATE="NF"
+    fi
+
+    if [ "${ACSTATE}" = "0" -o "X${BATSTATE}" = "XDischarging" ]; then
+        echo "AC is offline"
+        DO3D="n"
+    else
+        DO3D="y"
+    fi
+fi
+
+export DO3D
+
+if [ "${DO3D}" = "y" ]; then
+    #TODO Fix up for non-ubuntu installs
+    #export PRIMUS_libGLa='/usr/lib/nvidia-304/libGL.so.1'
+    #export LD_LIBRARY_PATH=/usr/lib/nvidia-304:/usr/lib32/nvidia-304:/usr/lib/nvidia-304/tls:/usr/lib32/nvidia/tls
+
+    #this is to get sudo to work properly with vmware
+    if [ -z "${XAUTHORITY}" ]; then
+        export XAUTHORITY=${HOME}/.Xauthority
+        XAUTHORITY=${HOME}/.Xauthority $SUDO ${bbrun} /usr/bin/vmware
+    else
+        export XAUTHORITY
+        XAUTHORITY=${XAUTHORITY} $SUDO ${bbrun} /usr/bin/vmware
+    fi
+else
+    /usr/bin/vmware
+fi
+
+exit 0
