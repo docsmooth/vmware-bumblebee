@@ -33,11 +33,11 @@ if [ $? -eq 0 ]; then
     exit 1
 fi
 
-if [ -x `which gksudo` ]; then
+if [ -x "`which gksudo`" ]; then
     SUDO="`which gksudo` -k"
-elif [ -x `which gksu` ]; then
+elif [ -x "`which gksu`" ]; then
     SUDO="`which gksu` -S -k"
-elif [ -x `which kdesudo` ]; then
+elif [ -x "`which kdesudo`" ]; then
     echo "WARNING: kdesudo doesn't support a '--preserve-environment' flag, please install gksu. Using 'sudo -E', which requires a working terminal."
     SUDO="sudo -E"
 else
@@ -66,14 +66,20 @@ determineos() {
         #Fill in Debian/Mint info here
     elif [ `which rpm` ]; then
         OStype="rpm"
-        if [ -f /etc/redhat-release ]; then
+        if [ `grep -c -i "fedora" /etc/redhat-release` -gt 0 ]; then
+            DISTRO="fedora"
+            LIB32="/lib32"
+            ULIB32="/usr/lib32"
+            LIB64="/lib"
+            ULIB64="/usr/lib"
+        elif [ -f /etc/redhat-release ]; then
             DISTRO="rhel"
             LIB32="/lib"
             ULIB32="/usr/lib"
             LIB64="/lib64"
             ULIB64="/usr/lib64"
         fi
-        # FIll in SUSE info here
+        # FIll in SUSE info her
     fi
     NVIDIA_DEST32="${ULIB32}/linux-gnu"
     NVIDIA_DEST64="${ULIB64}/x86_64-linux-gnu"
@@ -179,6 +185,7 @@ if [ "${DO3D}" = "y" ]; then
     #export PRIMUS_libGLa='/usr/lib/nvidia-304/libGL.so.1'
     #export LD_LIBRARY_PATH=/usr/lib/nvidia-304:/usr/lib32/nvidia-304:/usr/lib/nvidia-304/tls:/usr/lib32/nvidia/tls
 
+
     LD_PRELOAD=${PRELOAD} exec ${bbrun} /usr/lib/vmware/bin/vmware-vmx.real "$@"
 else
     /usr/lib/vmware/bin/vmware-vmx.real "$@"
@@ -277,6 +284,7 @@ if [ "${DO3D}" = "y" ]; then
     #TODO Fix up for non-ubuntu installs
     #export PRIMUS_libGLa='/usr/lib/nvidia-304/libGL.so.1'
     #export LD_LIBRARY_PATH=/usr/lib/nvidia-304:/usr/lib32/nvidia-304:/usr/lib/nvidia-304/tls:/usr/lib32/nvidia/tls
+
 
     #this is to get sudo to work properly with vmware
     if [ -z "${XAUTHORITY}" ]; then
