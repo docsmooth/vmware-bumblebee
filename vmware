@@ -5,9 +5,11 @@
 # v1.1 - added "gksu / sudo" autodetection for ease-of-use
 # v1.2 - added variable pathnames for easier support of non-Ubuntu
 # v1.3 - added fixing of links per LinuxReCon in communities.vmware.com/message/2159266#2159266 as fixlinks()
+# v1.4 - update Fedora path detection, fix quotes around sudo detection
+# v1.5 - update AC/Battery sys paths and add a removal routine
 
-ACADAPTER="/sys/bus/acpi/drivers/ac/ACPI0003\:00/power_supply/AC/online"
-BATTERY="/sys/bus/acpi/drivers/battery/PNP0C0A\:00/power_supply/BAT0"
+ACADAPTER="/sys/class/power_supply/AC"
+BATTERY="/sys/class/power_supply/BAT0"
 
 # The default 3D method - autodetection, forced off, or forced on:
 FORCE3D="a"  #a for auto, n for no (forced off), y for yes (forced on)
@@ -25,7 +27,9 @@ if [ $? -eq 0 ]; then
     echo "    -?|-h|--help        -- this help text"
     echo "    -f|-y|--yes|--force -- force using optirun/primusrun"
     echo "    -n|--no             -- force NOT using optirun/primusrun"
-    echo "    -i|--install        -- install these scripts"
+    echo "    -i|--install        -- install a required script in your vmware folder"
+    echo "    -r|--remove         -- remove the script from your vmware folder"
+    echo "                           Removal/reinstall is required on script update"
     echo ""
     echo "If no options are passed, auto-detection is used.  Autodetection simply attempts to figure out if"
     echo "your AC adapter is plugged in or not."
@@ -117,6 +121,46 @@ determineos() {
 
 determineos
 
+removevmx_script() {
+    if [ -x ${ULIB}/vmware/bin/vmware-vmx ]; then
+        filetype=`file ${ULIB}/vmware/bin/vmware-vmx`
+        echo ${filetype} | grep -q "ASCII text"
+        if [ $? -eq 0 -a -x ${ULIB}/vmware/bin/vmware-vmx.real ]; then
+            # last chance to make sure this is our script, rather than VMware
+            # changing the product on us...
+            egrep -q "^DO3D=" ${ULIB}/vmware/bin/vmware-vmx
+            if [ $? -eq 0 ]; then
+                echo "Uninstalling vmware-bumblebee script from ${ULIB}/vmware/bin/vmware-vmx and restoring original binary"
+                rm -f ${ULIB}/vmware/bin/vmware-vmx
+                mv ${ULIB}/vmware/bin/vmware-vmx.real ${ULIB}/vmware/bin/vmware-vmx
+                if [ $? -ne 0 ]; then
+                    echo "ERROR: Couldn't move ${ULIB}/vmware/bin/vmware-vmx.real back to ${ULIB}/vmware/bin/vmware-vmx - please try to do this manually!!"
+                    echo "ERROR!    Your VMware install is in an unusable state.  Try:"
+                    echo "   sudo mv ${ULIB}/vmware/bin/vmware-vmx.real ${ULIB}/vmware/bin/vmware-vmx"
+                    exit 16
+                else
+                    echo "Uninstallation completed successfully"
+                    return 0
+                fi
+            else
+                echo "ERROR: Did not find the expected 'DO3D=' line in ${ULIB}/vmware/bin/vmware-vmx"
+                echo "ERROR: Aborting for safety."
+                exit 4
+            fi
+        else
+            echo "ERROR: ${ULIB}/vmware/bin/vmware-vmx is not an ASCII text executable script."
+            echo "ERROR: or ${ULIB}/vmware/bin/vmware-vmx is not an executable file."
+            echo "ERROR: Aborting for safety."
+            exit 4
+        fi
+    else
+        echo "ERROR: ${ULIB}/vmware/bin/vmware-vmx is not executable, so it can't be from this script."
+        exit 4
+    fi
+
+}
+
+
 installvmx_script() {
     if [ -x ${ULIB}/vmware/bin/vmware-vmx ]; then
         filetype=`file ${ULIB}/vmware/bin/vmware-vmx`
@@ -182,8 +226,8 @@ fi
 
 
 if [ "${DO3D}" = "y" ]; then
-    #export PRIMUS_libGLa='/usr/lib/nvidia-304/libGL.so.1'
-    #export LD_LIBRARY_PATH=/usr/lib/nvidia-304:/usr/lib32/nvidia-304:/usr/lib/nvidia-304/tls:/usr/lib32/nvidia/tls
+    export PRIMUS_libGLa='/usr/lib/nvidia-331-updates/libGL.so.1'
+    export LD_LIBRARY_PATH=/usr/lib/nvidia-331-updates:/usr/lib32/nvidia-331-updates:/usr/lib/nvidia-331-updates/tls:/usr/lib32/nvidia-331-updates/tls
 
 
     LD_PRELOAD=${PRELOAD} exec ${bbrun} /usr/lib/vmware/bin/vmware-vmx.real "$@"
@@ -220,6 +264,24 @@ echo $1 | egrep -q -w '(n|no)'
 if [ $? -eq 0 ]; then
     echo "Forcing 3D off"
     FORCE3D="n"
+fi
+
+echo $1 | egrep -q -w '(r|remove)'
+if [ $? -eq 0 ]; then
+    if [ "$USER" = "root" ]; then
+        removevmx_script
+        if [ $? -eq 0 ]; then
+            fixlinks
+            exit 0
+        else
+            echo "Some error happened in the removal!"
+            exit 1
+        fi
+    else
+        echo "ERROR: Have to be root to run the removal!"
+        echo "       Please try again via $SUDO."
+        exit 2
+    fi
 fi
 
 echo $1 | egrep -q -w '(i|install)'
@@ -262,9 +324,9 @@ else
     #automatic!
 
     # Now determine if we're on AC (mains) power or not
-    ACSTATE=`cat ${ACADAPTER}`
+    ACSTATE=`cat ${ACADAPTER}/online`
     BATSTATE=`cat ${BATTERY}/status`
-    if [ -f ${BATTERY} ]; then
+    if [ -z "${BATSTATE}" -a -f ${BATTERY} ]; then
         BATPRESENT=`cat ${BATTERY}/present`
     else
         BATSTATE="NF"
@@ -296,6 +358,27 @@ if [ "${DO3D}" = "y" ]; then
     fi
 else
     /usr/bin/vmware
+fi
+
+# CLEAN UP!!  Running VMware under sudo takes over a few files on Ubuntu
+#TODO Figure out if these paths are the same on Fedora / others?
+if [ -d "$XDG_RUNTIME_DIR/pulse" -a "${DO3D}" = "y" ]; then
+    echo "attempting to clean up any chown operations vmware may have done to you"
+    OWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}/pulse"`
+    NEWOWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}"`
+    if [ "$NEWOWNER" != "$OWNER" ]; then
+        #vmware changed our file
+        $SUDO "chown -R $NEWOWNER ${XDG_RUNTIME_DIR}/pulse"
+    fi
+fi
+if [ -f "$XDG_RUNTIME_DIR/X11-display" -a "${DO3D}" = "y" ]; then
+    echo "attempting to clean up any chown operations vmware may have done to you"
+    OWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}/X11-display"`
+    NEWOWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}"`
+    if [ "$NEWOWNER" != "$OWNER" ]; then
+        #vmware changed our file
+        $SUDO "chown -R $NEWOWNER ${XDG_RUNTIME_DIR}/X11-display"
+    fi
 fi
 
 exit 0
