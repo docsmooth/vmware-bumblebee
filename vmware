@@ -7,9 +7,15 @@
 # v1.3 - added fixing of links per LinuxReCon in communities.vmware.com/message/2159266#2159266 as fixlinks()
 # v1.4 - update Fedora path detection, fix quotes around sudo detection
 # v1.5 - update AC/Battery sys paths and add a removal routine
+# v1.6 - update NVIDIA_VERSION, add some root cleanup to /run/user/$UID
 
+#set this value appropriate for your laptop, and report updates and OS type to github or @docsmooth
 ACADAPTER="/sys/class/power_supply/AC"
 BATTERY="/sys/class/power_supply/BAT0"
+
+#set this for your OS and report issues to github or @docsmooth
+NVIDIAVERSION="nvidia-331-updates"
+export NVIDIAVERSION
 
 # The default 3D method - autodetection, forced off, or forced on:
 FORCE3D="a"  #a for auto, n for no (forced off), y for yes (forced on)
@@ -226,8 +232,8 @@ fi
 
 
 if [ "${DO3D}" = "y" ]; then
-    export PRIMUS_libGLa='/usr/lib/nvidia-331-updates/libGL.so.1'
-    export LD_LIBRARY_PATH=/usr/lib/nvidia-331-updates:/usr/lib32/nvidia-331-updates:/usr/lib/nvidia-331-updates/tls:/usr/lib32/nvidia-331-updates/tls
+    export PRIMUS_libGLa='/usr/lib/${NVIDIAVERSION}/libGL.so.1'
+    export LD_LIBRARY_PATH=/usr/lib/${NVIDIAVERSION}:/usr/lib32/${NVIDIAVERSION}:/usr/lib/${NVIDIAVERSION}/tls:/usr/lib32/${NVIDIAVERSION}/tls
 
 
     LD_PRELOAD=${PRELOAD} exec ${bbrun} /usr/lib/vmware/bin/vmware-vmx.real "$@"
@@ -344,8 +350,8 @@ export DO3D
 
 if [ "${DO3D}" = "y" ]; then
     #TODO Fix up for non-ubuntu installs
-    #export PRIMUS_libGLa='/usr/lib/nvidia-304/libGL.so.1'
-    #export LD_LIBRARY_PATH=/usr/lib/nvidia-304:/usr/lib32/nvidia-304:/usr/lib/nvidia-304/tls:/usr/lib32/nvidia/tls
+    #export PRIMUS_libGLa='/usr/lib/${NVIDIAVERSION}/libGL.so.1'
+    #export LD_LIBRARY_PATH=/usr/lib/${NVIDIAVERSION}:/usr/lib32/${NVIDIAVERSION}:/usr/lib/${NVIDIAVERSION}/tls:/usr/lib32/${NVIDIAVERSION}/tls
 
 
     #this is to get sudo to work properly with vmware
