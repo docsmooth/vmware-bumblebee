@@ -308,6 +308,17 @@ if [ $? -eq 0 ]; then
     fi
 fi
 
+case "$-" in
+    *x*)
+        $ECHO "-x is set, continuing in forked process"
+        SHOPT="bash -x "
+        ;;
+    *)
+        SHOPT=""
+        ;;
+esac
+
+
 fixlinks
 
 # Find primusrun or optirun, since this can work with both 
@@ -357,10 +368,10 @@ if [ "${DO3D}" = "y" ]; then
     #this is to get sudo to work properly with vmware
     if [ -z "${XAUTHORITY}" ]; then
         export XAUTHORITY=${HOME}/.Xauthority
-        XAUTHORITY=${HOME}/.Xauthority $SUDO ${bbrun} /usr/bin/vmware
+        XAUTHORITY=${HOME}/.Xauthority $SUDO "${bbrun} ${SHOPT} /usr/bin/vmware"
     else
         export XAUTHORITY
-        XAUTHORITY=${XAUTHORITY} $SUDO ${bbrun} /usr/bin/vmware
+        XAUTHORITY=${XAUTHORITY} $SUDO "${bbrun} ${SHOPT} /usr/bin/vmware"
     fi
 else
     /usr/bin/vmware
