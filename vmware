@@ -8,6 +8,7 @@
 # v1.4 - update Fedora path detection, fix quotes around sudo detection
 # v1.5 - update AC/Battery sys paths and add a removal routine
 # v1.6 - update NVIDIA_VERSION, add some root cleanup to /run/user/$UID
+# v1.7 - support for VMware Workstation 10 finally
 
 #set this value appropriate for your laptop, and report updates and OS type to github or @docsmooth
 ACADAPTER="/sys/class/power_supply/AC"
@@ -127,90 +128,102 @@ determineos() {
 
 determineos
 
-removevmx_script() {
-    if [ -x ${ULIB}/vmware/bin/vmware-vmx ]; then
-        filetype=`file ${ULIB}/vmware/bin/vmware-vmx`
+restore_file() {
+    FILE="$@"
+    if [ -x ${FILE} ]; then
+        filetype=`file ${FILE}`
         echo ${filetype} | grep -q "ASCII text"
-        if [ $? -eq 0 -a -x ${ULIB}/vmware/bin/vmware-vmx.real ]; then
+        if [ $? -eq 0 -a -x ${FILE}.real ]; then
             # last chance to make sure this is our script, rather than VMware
             # changing the product on us...
-            egrep -q "^DO3D=" ${ULIB}/vmware/bin/vmware-vmx
+            egrep -q "\bbbrun\b" ${FILE}
             if [ $? -eq 0 ]; then
-                echo "Uninstalling vmware-bumblebee script from ${ULIB}/vmware/bin/vmware-vmx and restoring original binary"
-                rm -f ${ULIB}/vmware/bin/vmware-vmx
-                mv ${ULIB}/vmware/bin/vmware-vmx.real ${ULIB}/vmware/bin/vmware-vmx
+                echo "Uninstalling vmware-bumblebee script from ${FILE} and restoring original binary"
+                rm -f ${FILE}
+                mv ${FILE}.real ${FILE}
                 if [ $? -ne 0 ]; then
-                    echo "ERROR: Couldn't move ${ULIB}/vmware/bin/vmware-vmx.real back to ${ULIB}/vmware/bin/vmware-vmx - please try to do this manually!!"
+                    echo "ERROR: Couldn't move ${FILE}.real back to ${FILE} - please try to do this manually!!"
                     echo "ERROR!    Your VMware install is in an unusable state.  Try:"
-                    echo "   sudo mv ${ULIB}/vmware/bin/vmware-vmx.real ${ULIB}/vmware/bin/vmware-vmx"
+                    echo "   sudo mv ${FILE}.real ${FILE}"
                     exit 16
                 else
                     echo "Uninstallation completed successfully"
                     return 0
                 fi
             else
-                echo "ERROR: Did not find the expected 'DO3D=' line in ${ULIB}/vmware/bin/vmware-vmx"
+                echo "ERROR: Did not find the expected 'bbrun' line in ${FILE}"
                 echo "ERROR: Aborting for safety."
                 exit 4
             fi
         else
-            echo "ERROR: ${ULIB}/vmware/bin/vmware-vmx is not an ASCII text executable script."
-            echo "ERROR: or ${ULIB}/vmware/bin/vmware-vmx is not an executable file."
+            echo "ERROR: ${FILE} is not an ASCII text executable script."
+            echo "ERROR: or ${FILE} is not an executable file."
             echo "ERROR: Aborting for safety."
             exit 4
         fi
     else
-        echo "ERROR: ${ULIB}/vmware/bin/vmware-vmx is not executable, so it can't be from this script."
+        echo "ERROR: ${FILE} is not executable, so it can't be from this script."
         exit 4
     fi
 
 }
 
+removevmx_script() {
+    restore_file "${ULIB}/vmware/bin/vmware-vmx"
+    restore_file "/usr/bin/vmware"
+}
 
-installvmx_script() {
-    if [ -x ${ULIB}/vmware/bin/vmware-vmx ]; then
-        filetype=`file ${ULIB}/vmware/bin/vmware-vmx`
-        echo ${filetype} | grep -q "setuid ELF"
+backup_file() {
+    FILETYPE=$1
+    shift
+    FILE="$@"
+    if [ -x ${FILE} ]; then
+        filetype=`file ${FILE}`
+        echo ${filetype} | grep -q "${FILETYPE}"
         if [ $? -ne 0 ]; then
-            echo "ERROR: vmware-vmx is not an ELF binary!"
+            echo "ERROR: ${file} is not a ${FILETYPE}!"
             echo "${filetype}"
             echo "ERROR: Refusing to continue!"
             exit 16
         fi
     else
-        echo "ERROR: vmware-vmx is not executable!"
+        echo "ERROR: ${FILE} is not executable!"
         echo "Don't know how to continue!"
         exit 16
     fi
 
-    if [ -f ${ULIB}/vmware/bin/vmware-vmx.real ]; then
-        echo "WARNING: there's already a vmware-vmx.real"
-        echo "Moving it to /usr/lib/vmware/bin/vmware-vmx.$$"
-        if [ -f ${ULIB}/vmware/bin/vmware-vmx.real.$$ ]; then
-            echo "Or not!  ${ULIB}/vmware/bin/vmware-vmx.real.$$ already exists!"
+    if [ -f ${FILE}.real ]; then
+        echo "WARNING: there's already a ${FILE}.real"
+        echo "Moving it to ${FILE}.real.$$"
+        if [ -f ${FILE}.real.$$ ]; then
+            echo "Or not!  ${FILE}.real.$$ already exists!"
             echo "ERROR: can't continue! Please clean up your VMware install!"
             exit 16
         fi
-        mv ${ULIB}/vmware/bin/vmware-vmx.real ${ULIB}/vmware/bin/vmware-vmx.real.$$
+        mv ${FILE}.real ${FILE}.real.$$
         if [ $? -ne 0 ]; then
-            echo "ERROR $? moving vmware-vmx.real."
+            echo "ERROR $? moving ${FILE}.real."
             echo "   Can't continue!"
             exit 16
         fi
     fi
-    mv ${ULIB}/vmware/bin/vmware-vmx ${ULIB}/vmware/bin/vmware-vmx.real
+    mv ${FILE} ${FILE}.real
     if [ $? -ne 0 ]; then
-        echo "ERROR $? moving vmware-vmx to vmware-vmx.real!"
+        echo "ERROR $? moving ${FILE} to ${FILE}.real!"
         echo "     Can't continue!"
         exit 16
     fi
+}
+
+installvmx_script() {
+    backup_file "setuid ELF" "${ULIB}/vmware/bin/vmware-vmx"
     touch ${ULIB}/vmware/bin/vmware-vmx
-    cat > ${ULIB}/vmware/bin/vmware-vmx <<'EOF'
+    cat > ${ULIB}/vmware/bin/vmware-vmx <<EOF
 #!/bin/bash
-DO3D="${DO3D}"
-if [ -z "${DO3D}" ]; then
+DO3D="\${DO3D}"
+if [ -z "\${DO3D}" ]; then
     ps -ef |egrep -q '[p]rimusrun.*vmware'
-    if [ $? -eq 0 ]; then
+    if [ \$? -eq 0 ]; then
         DO3D="y"
     else
         DO3D="n"
@@ -220,29 +233,56 @@ fi
 # Find primusrun or optirun, since this can work with both, eventually
 bbrun="/usr/bin/primusrun"
 PRELOAD="/usr/lib/x86_64-linux-gnu/primus/libGL.so.1"
-if [ ! -x ${bbrun} ]; then
+if [ ! -x \${bbrun} ]; then
     bbrun="/usr/bin/optirun"
     #PRELOAD="/usr/lib/x86_64-linux-gnu/optimus/libGL.so.1"
     PRELOAD=""
 fi
-if [ ! -x ${bbrun} ]; then
+if [ ! -x \${bbrun} ]; then
     echo "ERROR: Couldn't find Primus or Optimus!"
     exit 4
 fi
 
 
-if [ "${DO3D}" = "y" ]; then
+if [ "\${DO3D}" = "y" ]; then
     export PRIMUS_libGLa='/usr/lib/${NVIDIAVERSION}/libGL.so.1'
     export LD_LIBRARY_PATH=/usr/lib/${NVIDIAVERSION}:/usr/lib32/${NVIDIAVERSION}:/usr/lib/${NVIDIAVERSION}/tls:/usr/lib32/${NVIDIAVERSION}/tls
 
 
-    LD_PRELOAD=${PRELOAD} exec ${bbrun} /usr/lib/vmware/bin/vmware-vmx.real "$@"
+    LD_PRELOAD=\${PRELOAD} exec \${bbrun} /usr/lib/vmware/bin/vmware-vmx.real "\$@"
 else
-    /usr/lib/vmware/bin/vmware-vmx.real "$@"
+    /usr/lib/vmware/bin/vmware-vmx.real "\$@"
 fi
 
 EOF
+    if [ $? -ne 0 ]; then
+        echo "There was an error installing the updated vmware-vmx file!  Backing out!"
+        removevmx_script
+        exit 16
+    fi
     chmod u+s,a+x ${ULIB}/vmware/bin/vmware-vmx
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Could not set permissions properly, please run:"
+        echo "chmod u+s,a+x ${ULIB}/vmware/bin/vmware-vmx"
+        exit 16 
+    fi
+    # now to edit the /usr/bin/vmware script to also use primusrun, if requested...
+    backup_file "ASCII" "/usr/bin/vmware"
+    sed -e 's/exec/exec \$\{bbrun}/g' /usr/bin/vmware.real > /usr/bin/vmware
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Couldn't replace 'exec' with 'exec \$bbrun' in /usr/bin/vmware"
+        exit 16
+    fi
+    chmod 755 /usr/bin/vmware
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Couldn't fix permissions  in /usr/bin/vmware"
+        exit 16
+    fi
+    chown root:root /usr/bin/vmware
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Couldn't fix owner in /usr/bin/vmware"
+        exit 16
+    fi
     exit 0
 }
 
@@ -310,7 +350,7 @@ fi
 
 case "$-" in
     *x*)
-        $ECHO "-x is set, continuing in forked process"
+        echo "'-x' is set, continuing in forked process"
         SHOPT="bash -x "
         ;;
     *)
@@ -330,7 +370,6 @@ if [ ! -x ${bbrun} ]; then
     echo "ERROR: Couldn't find Primus or Optimus!"
     exit 4
 fi
-
 
 if [ "${FORCE3D}" = "y" ]; then
     #The user wants it forced on! Easy!
@@ -364,38 +403,38 @@ if [ "${DO3D}" = "y" ]; then
     #export PRIMUS_libGLa='/usr/lib/${NVIDIAVERSION}/libGL.so.1'
     #export LD_LIBRARY_PATH=/usr/lib/${NVIDIAVERSION}:/usr/lib32/${NVIDIAVERSION}:/usr/lib/${NVIDIAVERSION}/tls:/usr/lib32/${NVIDIAVERSION}/tls
 
+    export bbrun
 
     #this is to get sudo to work properly with vmware
     if [ -z "${XAUTHORITY}" ]; then
         export XAUTHORITY=${HOME}/.Xauthority
-        XAUTHORITY=${HOME}/.Xauthority $SUDO "${bbrun} ${SHOPT} /usr/bin/vmware"
     else
         export XAUTHORITY
-        XAUTHORITY=${XAUTHORITY} $SUDO "${bbrun} ${SHOPT} /usr/bin/vmware"
     fi
+    #XAUTHORITY=${XAUTHORITY} $SUDO "${bbrun} ${SHOPT} ${ULIB}/vmware/bin/vmware"
+    XAUTHORITY=${XAUTHORITY} $SUDO ${bbrun} ${SHOPT} /usr/bin/vmware
 else
+    export bbrun=""
     /usr/bin/vmware
 fi
 
 # CLEAN UP!!  Running VMware under sudo takes over a few files on Ubuntu
 #TODO Figure out if these paths are the same on Fedora / others?
-if [ -d "$XDG_RUNTIME_DIR/pulse" -a "${DO3D}" = "y" ]; then
-    echo "attempting to clean up any chown operations vmware may have done to you"
-    OWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}/pulse"`
-    NEWOWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}"`
-    if [ "$NEWOWNER" != "$OWNER" ]; then
-        #vmware changed our file
-        $SUDO "chown -R $NEWOWNER ${XDG_RUNTIME_DIR}/pulse"
+
+fixx11owners() {
+    FILE="$@"
+    if [ -d "$XDG_RUNTIME_DIR/${FILE}" -a "${DO3D}" = "y" ]; then
+        echo "attempting to clean up any chown operations vmware may have done to you"
+        OWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}/${FILE}"`
+        NEWOWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}"`
+        if [ "$NEWOWNER" != "$OWNER" ]; then
+            #vmware changed our file
+            $SUDO "chown -R $NEWOWNER ${XDG_RUNTIME_DIR}/${FILE}"
+        fi
     fi
-fi
-if [ -f "$XDG_RUNTIME_DIR/X11-display" -a "${DO3D}" = "y" ]; then
-    echo "attempting to clean up any chown operations vmware may have done to you"
-    OWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}/X11-display"`
-    NEWOWNER=`stat --printf %u:%g "${XDG_RUNTIME_DIR}"`
-    if [ "$NEWOWNER" != "$OWNER" ]; then
-        #vmware changed our file
-        $SUDO "chown -R $NEWOWNER ${XDG_RUNTIME_DIR}/X11-display"
-    fi
-fi
+}
+
+fixx11owners "pulse"
+fixx11owners "X11-display"
 
 exit 0
