@@ -89,6 +89,14 @@ determineos() {
             ULIB32="/usr/lib"
             LIB64="/lib64"
             ULIB64="/usr/lib64"
+        elif [ `grep -c -i "archlinux" /etc/lsb-release` -gt 0 ]; then
+            DISTRO="archlinux"
+            LIB32="donotknow"
+            ULIB32="donotknow"
+            LIB64="donotknow"
+            ULIB64="donotknow"
+            echo "ERROR: Do not know any paths for arch linux! Please edit the paths in line 93 appropriately!"
+            exit 2
         fi
         # FIll in SUSE info her
     fi
