@@ -9,6 +9,7 @@
 # v1.5 - update AC/Battery sys paths and add a removal routine
 # v1.6 - update NVIDIA_VERSION, add some root cleanup to /run/user/$UID
 # v1.7 - support for VMware Workstation 10 finally
+# v1.8 - add some additional skeletons for greater distro support for issue 5
 
 #set this value appropriate for your laptop, and report updates and OS type to github or @docsmooth
 ACADAPTER="/sys/class/power_supply/AC"
@@ -27,6 +28,8 @@ DO3D="n"
 
 echo $1 | egrep -q -w '(help|h|\?)'
 if [ $? -eq 0 ]; then
+    echo "vmware-bumblebee v1.8"
+    echo "from https://github.com/docsmooth/vmware-bumblebee"
     echo "Choose whether to run VMware Workstation via primusrun/optirun or not, based on laptop power state"
     echo "  (plugged in or not)"
     echo "Options are slim:"
