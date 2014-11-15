@@ -65,6 +65,12 @@ determineos() {
     # below, any time it's changed.  That's the only reason it exists as a function:
     # to delineate what needs to be duplicated into the installvmx_script()
     ARCH=`uname -p`
+    if [ "$ARCH" = "unknown" ]; then
+        ARCH=`uname -m`
+    fi
+    if [ "$ARCH" = "unknown" ]; then
+        ARCH=`uname -i`
+    fi
     if [  `which dpkg` ]; then
         OStype="deb"
         if [ `grep -c -i "ubuntu" /etc/os-release` -gt 0 ]; then
