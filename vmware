@@ -262,9 +262,14 @@ if [ -z "\${DO3D}" ]; then
     fi
 fi
 
+if [ -z "\${NVIDIA_DEST}" ]; then
+    echo "ERROR: NVIDIA_DEST variable is empty, we should have inherited from the user vmware script!"
+    exit 4
+fi
+
 # Find primusrun or optirun, since this can work with both, eventually
 bbrun="/usr/bin/primusrun"
-PRELOAD="/usr/lib/x86_64-linux-gnu/primus/libGL.so.1"
+PRELOAD="\${NVIDIA_DEST}/primus/libGL.so.1"
 if [ ! -x \${bbrun} ]; then
     bbrun="/usr/bin/optirun"
     #PRELOAD="/usr/lib/x86_64-linux-gnu/optimus/libGL.so.1"
