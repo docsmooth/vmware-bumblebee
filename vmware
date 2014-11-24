@@ -27,10 +27,12 @@ FORCE3D="a"  #a for auto, n for no (forced off), y for yes (forced on)
 #This is how we'll track what we decide to do. Default safe for power.
 #The script will change this value based on logic below. Change to "y" to default on for speed
 DO3D="n"
+scriptname=`basename $0`
 
 echo $1 | egrep -q -w '(help|h|\?)'
 if [ $? -eq 0 ]; then
     echo "vmware-bumblebee ${gVers}"
+    echo "Called as $scriptname"
     echo "from https://github.com/docsmooth/vmware-bumblebee"
     echo "Choose whether to run VMware Workstation via primusrun/optirun or not, based on laptop power state"
     echo "  (plugged in or not)"
@@ -435,6 +437,13 @@ fi
 
 export DO3D
 
+# allow calling this as vmware or vmplayer to get the appropriate GUI
+if [ "X$scriptname" = "Xvmplayer" ]; then
+    VMware="/usr/bin/vmplayer"
+else
+    VMware="/usr/bin/vmware"
+fi
+
 if [ "${DO3D}" = "y" ]; then
     #TODO Fix up for non-ubuntu installs
     #export PRIMUS_libGLa='/usr/lib/${NVIDIAVERSION}/libGL.so.1'
@@ -449,10 +458,10 @@ if [ "${DO3D}" = "y" ]; then
         export XAUTHORITY
     fi
     #XAUTHORITY=${XAUTHORITY} $SUDO "${bbrun} ${SHOPT} ${ULIB}/vmware/bin/vmware"
-    XAUTHORITY=${XAUTHORITY} $SUDO ${bbrun} ${SHOPT} /usr/bin/vmware
+    XAUTHORITY=${XAUTHORITY} $SUDO ${bbrun} ${SHOPT} $VMware
 else
     export bbrun=""
-    /usr/bin/vmware
+    $VMware
 fi
 
 # CLEAN UP!!  Running VMware under sudo takes over a few files on Ubuntu
