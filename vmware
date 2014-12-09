@@ -107,7 +107,7 @@ determineos() {
         # FIll in SUSE info here
     elif [ `which pacman` ]; then
         OStype="arch"
-         if [ `grep -c -i "archlinux" /etc/lsb-release` -gt 0 ]; then
+         if [ `grep -c -i "arch linux" /etc/lsb-release` -gt 0 ]; then
              DISTRO="arch"
              LIB32="/lib32"
              ULIB32="/usr/lib32"
