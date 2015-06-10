@@ -19,7 +19,7 @@ ACADAPTER="/sys/class/power_supply/AC"
 BATTERY="/sys/class/power_supply/BAT0"
 
 #set this for your OS and report issues to github or @docsmooth
-NVIDIAVERSION="nvidia-331-updates"
+NVIDIAVERSION="nvidia"
 export NVIDIAVERSION
 
 # The default 3D method - autodetection, forced off, or forced on:
@@ -103,8 +103,13 @@ determineos() {
             ULIB32="/usr/lib"
             LIB64="/lib64"
             ULIB64="/usr/lib64"
+        elif [ `grep -c -i "opensuse" /etc/os-release` -gt 0 ]; then
+            DISTRO="opensuse"
+            LIB32="/lib"
+            ULIB32="/usr/lib"
+            LIB64="/lib64"
+            ULIB64="/usr/lib64"
         fi
-        # FIll in SUSE info here
     elif [ `which pacman` ]; then
         OStype="arch"
          if [ `grep -c -i "arch linux" /etc/lsb-release` -gt 0 ]; then
@@ -374,7 +379,7 @@ if [ $? -eq 0 ]; then
         removevmx_script
         if [ $? -eq 0 ]; then
             fixlinks
-            if  [ "${DISTRO}" = "fedora" ] && [ "${ARCH}" = "x86_64" -o "${ARCH}" = "amd64" ]; then
+            if ( [ "${DISTRO}" = "fedora" ] || [ "${DISTRO}" = "opensuse" ] ) && ( [ "${ARCH}" = "x86_64" -o "${ARCH}" = "amd64" ] ); then
 	      fedora_remove_links
 	    fi
             exit 0
@@ -392,7 +397,7 @@ fi
 echo $1 | egrep -q -w '(i|install)'
 if [ $? -eq 0 ]; then
     if [ "$USER" = "root" ]; then
-	if  [ "${DISTRO}" = "fedora" ] && [ "${ARCH}" = "x86_64" -o "${ARCH}" = "amd64" ]; then
+	if ( [ "${DISTRO}" = "fedora" ] || [ "${DISTRO}" = "opensuse" ] ) && ( [ "${ARCH}" = "x86_64" -o "${ARCH}" = "amd64" ] ); then
 	  fedora_add_links
 	fi
         installvmx_script
