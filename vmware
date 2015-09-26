@@ -13,15 +13,12 @@
 # v1.8.1 - add first part of Manjaro / Arch support - may not work untill issue 6 closed
 # v1.9 - add vmplayer support, finalize Arch support
 # v1.10 - OpenSuse support from @linuxrecon
+# v2.0 - automatically determine Nvidia version better
 
-gVers="1.10"
+gVers="2.0"
 #set this value appropriate for your laptop, and report updates and OS type to github or @docsmooth
 ACADAPTER="/sys/class/power_supply/AC"
 BATTERY="/sys/class/power_supply/BAT0"
-
-#set this for your OS and report issues to github or @docsmooth
-NVIDIAVERSION="nvidia"
-export NVIDIAVERSION
 
 # The default 3D method - autodetection, forced off, or forced on:
 FORCE3D="a"  #a for auto, n for no (forced off), y for yes (forced on)
@@ -159,6 +156,12 @@ determineos() {
         echo "ERROR: Couldn't determine paths properly!"
         exit 2
     fi
+    #Automatically determine which Nvidia driver we need.
+    nvdir=`ls -d $ULIB/nvidia*/xorg|sort -r | head -1`
+    nvdir=`dirname $nvdir`
+    NVIDIAVERSION=`basename $nvdir`
+    echo "Using NVIDIAVERSION $NVIDIAVERSION from directory '$nvdir'"
+
     export ARCH
     export DISTRO
     export OStype
@@ -167,6 +170,7 @@ determineos() {
     export ULIB32
     export ULIB64
     export NVIDIA_DEST
+    export NVIDIAVERSION
 }
 
 determineos
@@ -472,6 +476,7 @@ if [ "X$scriptname" = "Xvmplayer" ]; then
 else
     VMware="/usr/bin/vmware"
 fi
+
 
 if [ "${DO3D}" = "y" ]; then
     #TODO Fix up for non-ubuntu installs
