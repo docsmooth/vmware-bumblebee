@@ -85,6 +85,12 @@ determineos() {
             ULIB32="/usr/lib32"
             LIB64="/lib"
             ULIB64="/usr/lib"
+        elif grep -q "debian" /etc/os-release; then
+            DISTRO="debian"
+            LIB32="/lib/i386-linux-gnu"
+            ULIB32="/usr/lib/i386-linux-gnu"
+            LIB64="/lib/x86_64-linux-gnu/"
+            ULIB64="/usr/lib/x86_64-linux-gnu/"
         fi
         #Fill in Debian/Mint info here
     elif [ `which rpm` ]; then
@@ -157,7 +163,11 @@ determineos() {
         exit 2
     fi
     #Automatically determine which Nvidia driver we need.
-    nvdir=`ls -d $ULIB/nvidia*/xorg|sort -r | head -1`
+    if [ -d "$ULIB/nvidia/current" ]; then
+        nvdir="$ULIB/nvidia/current"
+    else
+        nvdir=`ls -d $ULIB/nvidia*/xorg|sort -r | head -1`
+    fi
     nvdir=`dirname $nvdir`
     NVIDIAVERSION=`basename $nvdir`
     echo "Using NVIDIAVERSION $NVIDIAVERSION from directory '$nvdir'"
