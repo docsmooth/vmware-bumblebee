@@ -28,6 +28,14 @@ FORCE3D="a"  #a for auto, n for no (forced off), y for yes (forced on)
 DO3D="n"
 scriptname=`basename $0`
 
+# allow calling this as vmware or vmplayer to get the appropriate GUI
+if [ "X$scriptname" = "Xvmplayer" ]; then
+    VMware="/usr/bin/vmplayer"
+else
+    VMware="/usr/bin/vmware"
+fi
+
+
 echo $1 | egrep -q -w '(help|h|\?)'
 if [ $? -eq 0 ]; then
     echo "vmware-bumblebee ${gVers}"
@@ -135,7 +143,7 @@ determineos() {
         NVIDIA_DEST32="${ULIB32}/linux-gnu"
     fi
     NVIDIA_DEST64="${ULIB64}"
-    if [ -d "${NVIDIA_DEST64}/linux-gnu" ]; then
+    if [ -d "${NVIDIA_DEST64}/x86_64-linux-gnu" ]; then
         NVIDIA_DEST64="${ULIB64}/x86_64-linux-gnu"
     fi
     # Set the default library path to be 64-bit for 64-bit hardware, 32-bit for 32-bit hardware.
@@ -480,13 +488,6 @@ else
 fi
 
 export DO3D
-
-# allow calling this as vmware or vmplayer to get the appropriate GUI
-if [ "X$scriptname" = "Xvmplayer" ]; then
-    VMware="/usr/bin/vmplayer"
-else
-    VMware="/usr/bin/vmware"
-fi
 
 
 if [ "${DO3D}" = "y" ]; then
