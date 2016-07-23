@@ -504,7 +504,7 @@ if [ "${DO3D}" = "y" ]; then
         export XAUTHORITY
     fi
     #XAUTHORITY=${XAUTHORITY} $SUDO "${bbrun} ${SHOPT} ${ULIB}/vmware/bin/vmware"
-    XAUTHORITY=${XAUTHORITY} $SUDO "${bbrun} ${SHOPT} $VMware"
+    XAUTHORITY=${XAUTHORITY} $SUDO ${bbrun} ${SHOPT} $VMware
 else
     export bbrun=""
     $VMware
