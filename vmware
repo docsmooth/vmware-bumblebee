@@ -35,6 +35,7 @@ if [ $? -eq 0 ]; then
     echo "from https://github.com/docsmooth/vmware-bumblebee"
     echo "Choose whether to run VMware Workstation via primusrun/optirun or not, based on laptop power state"
     echo "  (plugged in or not)"
+
     echo "Options are slim:"
     echo ""
     echo "    -?|-h|--help        -- this help text"
@@ -226,7 +227,7 @@ restore_file() {
 }
 
 removevmx_script() {
-    restore_file "${ULIB}/vmware/bin/vmware-vmx"
+    restore_file "/usr/lib/vmware/bin/vmware-vmx"
     #restore_file "/usr/bin/vmware"
     restore_file $VMware
 }
@@ -274,9 +275,9 @@ backup_file() {
 }
 
 installvmx_script() {
-    backup_file "setuid ELF" "${ULIB}/vmware/bin/vmware-vmx"
-    touch ${ULIB}/vmware/bin/vmware-vmx
-    cat > ${ULIB}/vmware/bin/vmware-vmx <<EOF
+    backup_file "setuid ELF" "/usr/lib/vmware/bin/vmware-vmx"
+    touch /usr/lib/vmware/bin/vmware-vmx
+    cat > /usr/lib/vmware/bin/vmware-vmx <<EOF
 #!/bin/bash
 DO3D="\${DO3D}"
 if [ -z "\${DO3D}" ]; then
@@ -323,11 +324,11 @@ EOF
         removevmx_script
         exit 16
     fi
-    chmod u+s,a+x ${ULIB}/vmware/bin/vmware-vmx
+    chmod u+s,a+x /usr/lib/vmware/bin/vmware-vmx
     if [ $? -ne 0 ]; then
         echo "ERROR: Could not set permissions properly, please run:"
-        echo "chmod u+s,a+x ${ULIB}/vmware/bin/vmware-vmx"
-        exit 16 
+        echo "chmod u+s,a+x /usr/lib/vmware/bin/vmware-vmx"
+        exit 16
     fi
     # now to edit the /usr/bin/vmware script to also use primusrun, if requested...
     backup_file "ASCII" $VMware
@@ -375,6 +376,14 @@ fixlinks() {
         done
     fi
 }
+
+# allow calling this as vmware or vmplayer to get the appropriate GUI
+if [ "X$scriptname" = "Xvmplayer" ]; then
+    VMware="/usr/bin/vmplayer"
+else
+    VMware="/usr/bin/vmware"
+fi
+
 
 #figure out which options the user wants
 echo $1 | egrep -q -w '(yes|y|f|force)'
@@ -444,7 +453,7 @@ esac
 
 fixlinks
 
-# Find primusrun or optirun, since this can work with both 
+# Find primusrun or optirun, since this can work with both
 bbrun="/usr/bin/primusrun"
 if [ ! -x ${bbrun} ]; then
     bbrun="/usr/bin/optirun"
@@ -480,14 +489,6 @@ else
 fi
 
 export DO3D
-
-# allow calling this as vmware or vmplayer to get the appropriate GUI
-if [ "X$scriptname" = "Xvmplayer" ]; then
-    VMware="/usr/bin/vmplayer"
-else
-    VMware="/usr/bin/vmware"
-fi
-
 
 if [ "${DO3D}" = "y" ]; then
     #TODO Fix up for non-ubuntu installs
