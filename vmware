@@ -504,7 +504,8 @@ if [ "${DO3D}" = "y" ]; then
         export XAUTHORITY
     fi
     #XAUTHORITY=${XAUTHORITY} $SUDO "${bbrun} ${SHOPT} ${ULIB}/vmware/bin/vmware"
-    XAUTHORITY=${XAUTHORITY} $SUDO ${bbrun} ${SHOPT} $VMware
+    #cmd=`echo "${bbrun} ${SHOPT} $VMware" | sed -r -e 's/([^[[:alnum:]]_\-\$])/\\1/g'`
+    XAUTHORITY=${XAUTHORITY} $SUDO -- ${bbrun} ${SHOPT} $VMware
 else
     export bbrun=""
     $VMware
