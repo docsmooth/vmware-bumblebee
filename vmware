@@ -14,11 +14,13 @@
 # v1.9 - add vmplayer support, finalize Arch support
 # v1.10 - OpenSuse support from @linuxrecon
 # v2.0 - automatically determine Nvidia version better
+# v2.1 - merge with vmware12 for better debian x64 library detection
+# v2.2 close issue 17 with AC detection
 
-gVers="2.0"
+gVers="2.2"
 #set this value appropriate for your laptop, and report updates and OS type to github or @docsmooth
-ACADAPTER="/sys/class/power_supply/AC"
-BATTERY="/sys/class/power_supply/BAT0"
+ACADAPTER="/sys/class/power_supply/AC*"
+BATTERY="/sys/class/power_supply/BAT*"
 
 # The default 3D method - autodetection, forced off, or forced on:
 FORCE3D="a"  #a for auto, n for no (forced off), y for yes (forced on)
@@ -471,10 +473,10 @@ else
     #automatic!
 
     # Now determine if we're on AC (mains) power or not
-    ACSTATE=`cat ${ACADAPTER}/online`
-    BATSTATE=`cat ${BATTERY}/status`
+    ACSTATE=`head -1 ${ACADAPTER}/online`
+    BATSTATE=`head -1 ${BATTERY}/status`
     if [ -z "${BATSTATE}" -a -f ${BATTERY} ]; then
-        BATPRESENT=`cat ${BATTERY}/present`
+        BATPRESENT=`head -1  ${BATTERY}/present`
     else
         BATSTATE="NF"
     fi
