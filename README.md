@@ -8,7 +8,7 @@ Information and history on this blog post: http://www.totalnetsolutions.net/2012
 
 To new users, especially those coming from other forum posts: Please check the issues tab.  I only have Ubuntu, but other developers have added Fedora, OpenSUSE, Arch, and Debian support.  I'm using the Issues to track things that aren't working, and as you can see, this is still actively developed, but it needs feedback for that to work.
 
-Last Updated 2017-08-07
+Last Updated 2018-07-24
 
 To use:
 mkdir -p ~/bin
@@ -22,11 +22,11 @@ wget https://github.com/docsmooth/vmware-bumblebee/blob/master/vmware && ln -s .
 
 This will place the scripts as executable in your $HOME/bin, so they can be launched from anywhere.
 
-For the first time, or after any update, run "sudo vmware -i" to install the helper.
+For the first time, or after any update to this script OR VMware Workstation, run "sudo vmware -i" to install the helper.
 
 To use normally, just run "vmware" or "vmplayer" and your default path SHOULD pick this up before the default VMware installed version in /usr/bin/vmware
 
-There are flags "--no" and "--yes" to force disable/enable 3d.  If you're on battery, the script should NOT launch the 3d routines, and VMware might complain about a missing 3d compatible video card.  That's OK.
+There are flags "--no" and "--yes" to force disable/enable 3d.  If you're on battery, the script should NOT launch the 3d routines, and VMware might complain about a missing 3d compatible video card.  That's OK and by design.
 
 Thank you in advance for any help with bugs, issues, comments.
 
