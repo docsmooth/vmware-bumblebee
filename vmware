@@ -253,7 +253,7 @@ backup_file() {
         filetype=`file ${FILE}`
         echo ${filetype} | grep -q "${FILETYPE}"
         if [ $? -ne 0 ]; then
-            echo "ERROR: ${file} is not a ${FILETYPE}!"
+            echo "ERROR: ${FILE} is not a ${FILETYPE}!"
             echo "${filetype}"
             echo "ERROR: Refusing to continue!"
             exit 16
