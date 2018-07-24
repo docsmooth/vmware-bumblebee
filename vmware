@@ -176,7 +176,11 @@ determineos() {
     if [ -d "$ULIB/nvidia/current" ]; then
         nvdir="$ULIB/nvidia/current"
     else
-        nvdir=`ls -d $ULIB/nvidia*/xorg|sort -r | head -1`
+        if ls -d $ULIB/nvidia*/xorg > /dev/null 2>&1; then
+            nvdir=`ls -d $ULIB/nvidia*/xorg | sort -r | head -1`
+        else # required on 18.04
+            nvdir=`ls -d $NVIDIA_DEST/nvidia*/xorg |  sort -r | head -1`
+        fi
     fi
     nvdir=`dirname $nvdir`
     NVIDIAVERSION=`basename $nvdir`
